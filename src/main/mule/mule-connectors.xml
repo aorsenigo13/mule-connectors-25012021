@@ -17,13 +17,34 @@ http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/
 		</wsc:connection>
 	</wsc:config>
 	<flow name="getAllAirlines" doc:id="80e0fb47-ed26-4e94-912b-49585d8c05bb" >
-		<http:listener doc:name="GET /all" doc:id="a1a03844-4172-4d8e-b0d3-1e4bcaefb88e" config-ref="HTTP_Listener_config" path="/all"/>
+		<http:listener doc:name="GET /all" doc:id="a1a03844-4172-4d8e-b0d3-1e4bcaefb88e" config-ref="HTTP_Listener_config" path="/all">
+			<http:error-response statusCode="#[vars.statusCode default 500]">
+				<http:body ><![CDATA[#[payload]]]></http:body>
+			</http:error-response>
+		</http:listener>
+		<set-variable value="#[message.attributes.queryParams.destination]" doc:name="Set destination" doc:id="5c7e0a5e-1aa6-495c-8e39-e9fce8ea5be7" variableName="destination"/>
 		<scatter-gather doc:name="Scatter-Gather" doc:id="37ca56c2-a351-44b8-b522-dcd9024ea04b" >
 			<route >
-				<flow-ref doc:name="getAmericanFlights" doc:id="f8e23619-9552-4972-886b-55651a4abc8b" name="getAmericanFlights"/>
+				<try doc:name="Try" doc:id="e97ccaf4-41e5-42ee-8b06-dfe058ff0866" >
+					<flow-ref doc:name="getAmericanFlights" doc:id="f8e23619-9552-4972-886b-55651a4abc8b" name="getAmericanFlights" />
+					<error-handler >
+						<on-error-continue enableNotifications="true" logException="true" doc:name="On Error Continue" doc:id="bd475144-0ee5-4ffe-aaed-90fc03290795" >
+							<logger level="INFO" doc:name="Logger" doc:id="5017f744-fbe3-4230-8418-68628d8d099b" message="#['\nerrore soffocato di american flights\n']"/>
+							<ee:transform doc:name="Transform Message" doc:id="aa6985ba-897a-4956-b041-dad2f982c3bb" >
+								<ee:message >
+									<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{
+}]]></ee:set-payload>
+								</ee:message>
+							</ee:transform>
+						</on-error-continue>
+					</error-handler>
+				</try>
 			</route>
 			<route >
-				<flow-ref doc:name="getDeltaFlights" doc:id="6981da66-93f1-4d0a-8989-9f1b9eeaa09f" name="getDeltaFlights"/>
+				<flow-ref doc:name="getDeltaFlights" doc:id="6981da66-93f1-4d0a-8989-9f1b9eeaa09f" name="getDeltaFlights" />
 			</route>
 		</scatter-gather>
 		<logger level="INFO" doc:name="Logger" doc:id="34c2a7ae-0132-4cc6-a319-01e0da2c51e8" message="tornato da Scarrer-Gather"/>
@@ -39,7 +60,7 @@ flatten(payload..payload)]]></ee:set-payload>
 	</flow>
 	<flow name="getAmericanFlights" doc:id="a302bfc7-06f7-43d9-9c5f-3e5775ee707c" >
 		<http:listener doc:name="GET /american" doc:id="9a1be8ad-7cfe-47e0-aed7-dd8003241a8a" config-ref="HTTP_Listener_config" path="/american"/>
-		<american-flights-api:get-flights doc:name="Get flights" doc:id="eca3252e-803f-4545-a658-12c343b20b2a" client-id="d1374b15c6864c3682ddbed2a247a826" client-secret="4a87fe7e2e43488c927372AEF981F066" config-ref="American_Flights_API_Config"/>
+		<american-flights-api:get-flights doc:name="Get flights" doc:id="eca3252e-803f-4545-a658-12c343b20b2a" client-id="d1374b15c6864c3682ddbed2a247a826" client-secret="4a87fe7e2e43488c927372AEF981F066" config-ref="American_Flights_API_Config" destination="#[vars.destination]"/>
 		<ee:transform doc:name="Transform Message" doc:id="98e64026-6478-4454-b4a6-6311585373cf" >
 			<ee:message >
 				<ee:set-payload ><![CDATA[%dw 2.0
